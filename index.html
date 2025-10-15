@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Venue Finder - Your Real Location</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 5px;
+            background-color: #e7f3ff;
+            color: #004085;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .venue-list {
+            margin-top: 20px;
+        }
+        .venue-item {
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .venue-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .venue-details {
+            font-size: 14px;
+            color: #666;
+            margin: 3px 0;
+        }
+        .distance {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px 0;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="number"] {
+            width: 100px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        select {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: white;
+            margin-right: 10px;
+        }
+        .location-info {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .code-output {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Venue Finder - Your Real Location</h1>
+        
+        <div class="controls">
+            <label for="maxDistance">Maximum Distance (km):</label>
+            <input type="number" id="maxDistance" value="2" min="0.5" max="50" step="0.5">
+            
+            <label for="venueType">Filter by Venue Type:</label>
+            <select id="venueType">
+                <option value="">All Types</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="cafe">Cafe</option>
+                <option value="bar">Bar</option>
+                <option value="pub">Pub</option>
+                <option value="fast_food">Fast Food</option>
+                <option value="nightclub">Nightclub</option>
+                <option value="club">Club</option>
+            </select>
+            
+            <label for="sortBy">Sort by:</label>
+            <select id="sortBy">
+                <option value="distance">Distance (closest first)</option>
+                <option value="name">Name (A-Z)</option>
+                <option value="type">Type</option>
+            </select>
+        </div>
+
+        <button onclick="findVenuesWithRealLocation()" id="findBtn">📍 Find Venues Near My Real Location</button>
+        <button onclick="runWithSampleData()" id="sampleBtn">🏙️ Run with Sample NYC Data</button>
+        
+        <div id="status"></div>
+        <div id="locationInfo"></div>
+        <div id="venueList" class="venue-list"></div>
+    </div>
+
+    <script src="filter_venues.js"></script>
+    <script>
+        // Your existing functions are now available!
+
+        async function findVenuesWithRealLocation() {
+            const statusDiv = document.getElementById('status');
+            const locationDiv = document.getElementById('locationInfo');
+            const venueList = document.getElementById('venueList');
+            const findBtn = document.getElementById('findBtn');
+            const maxDistance = parseFloat(document.getElementById('maxDistance').value);
+            
+            // Clear previous results
+            venueList.innerHTML = '';
+            locationDiv.innerHTML = '';
+            
+            // Disable button
+            findBtn.disabled = true;
+            statusDiv.className = 'status';
+            statusDiv.textContent = 'Getting your real location...';
+            
+            try {
+                // Get user's real location
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    });
+                });
+                
+                const userLat = position.coords.latitude;
+                const userLon = position.coords.longitude;
+                
+                locationDiv.className = 'location-info';
+                locationDiv.innerHTML = `
+                    <strong>Your Real Location:</strong><br>
+                    Latitude: ${userLat.toFixed(6)}<br>
+                    Longitude: ${userLon.toFixed(6)}<br>
+                    Accuracy: ±${Math.round(position.coords.accuracy)} meters
+                `;
+                
+                statusDiv.textContent = 'Fetching real venues near you...';
+                
+                // Fetch real venues using OpenStreetMap
+                const realVenues = await fetchRealVenues(userLat, userLon, maxDistance * 1000);
+                
+                // Get filter and sort options
+                const venueType = document.getElementById('venueType').value;
+                const sortBy = document.getElementById('sortBy').value;
+                
+                // Use the new comprehensive filtering and sorting function
+                const nearbyVenues = filterAndSortVenues(
+                    realVenues,
+                    userLat,
+                    userLon,
+                    maxDistance,
+                    venueType,
+                    sortBy
+                );
+                
+                let statusText = `Found ${nearbyVenues.length} real venues within ${maxDistance}km`;
+                if (venueType) {
+                    statusText += ` (filtered by: ${venueType})`;
+                }
+                if (sortBy !== 'distance') {
+                    statusText += ` (sorted by: ${sortBy})`;
+                }
+                statusDiv.textContent = statusText;
+                
+                
+                if (nearbyVenues.length === 0) {
+                    venueList.innerHTML = '<p>No venues found within the specified distance. Try increasing the distance.</p>';
+                } else {
+                    venueList.innerHTML = nearbyVenues.map((venue, index) => `
+                        <div class="venue-item">
+                            <div class="venue-name">${index + 1}. ${venue.name}</div>
+                            <div class="venue-details">📍 <span class="distance">${venue.distance.toFixed(2)} km away</span></div>
+                            ${venue.type ? `<div class="venue-details">🏷️ Type: ${venue.type}</div>` : ''}
+                            ${venue.cuisine ? `<div class="venue-details">🍽️ Cuisine: ${venue.cuisine}</div>` : ''}
+                            ${venue.address ? `<div class="venue-details">📮 ${venue.address}</div>` : ''}
+                            <div class="venue-details" style="font-size: 12px; color: #999;">
+                                Coordinates: ${venue.latitude.toFixed(6)}, ${venue.longitude.toFixed(6)}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                
+            } catch (error) {
+                statusDiv.className = 'status error';
+                if (error.code === 1) {
+                    statusDiv.textContent = '❌ Location access denied. Please allow location access in your browser settings.';
+                } else if (error.code === 2) {
+                    statusDiv.textContent = '❌ Location unavailable. Please check your device location settings.';
+                } else if (error.code === 3) {
+                    statusDiv.textContent = '❌ Location request timed out. Please try again.';
+                } else {
+                    statusDiv.textContent = `❌ Error: ${error.message}`;
+                }
+                console.error('Error:', error);
+            } finally {
+                findBtn.disabled = false;
+            }
+        }
+
+        function runWithSampleData() {
+            const statusDiv = document.getElementById('status');
+            const locationDiv = document.getElementById('locationInfo');
+            const venueList = document.getElementById('venueList');
+            const maxDistance = parseFloat(document.getElementById('maxDistance').value);
+            
+            // Clear previous results
+            venueList.innerHTML = '';
+            locationDiv.innerHTML = '';
+            
+            // Sample data from your code (updated with venue types)
+            const venues = [
+                { name: "Coffee Shop A", latitude: 40.7128, longitude: -74.0060, type: "cafe" },
+                { name: "Restaurant B", latitude: 40.7589, longitude: -73.9851, type: "restaurant" },
+                { name: "Park C", latitude: 40.7829, longitude: -73.9654, type: "park" },
+                { name: "Museum D", latitude: 40.7614, longitude: -73.9776, type: "museum" },
+                { name: "Gym E", latitude: 40.7489, longitude: -73.9680, type: "gym" },
+                { name: "Bar & Grill", latitude: 40.7500, longitude: -73.9800, type: "bar" },
+                { name: "Pizza Palace", latitude: 40.7550, longitude: -73.9750, type: "restaurant" },
+                { name: "Night Club X", latitude: 40.7600, longitude: -73.9700, type: "nightclub" },
+                { name: "Sports Bar", latitude: 40.7450, longitude: -73.9850, type: "bar" },
+                { name: "Fast Food Corner", latitude: 40.7400, longitude: -73.9900, type: "fast_food" }
+            ];
+            
+            const userLatitude = 40.7580;
+            const userLongitude = -73.9855;
+            
+            // Get filter and sort options
+            const venueType = document.getElementById('venueType').value;
+            const sortBy = document.getElementById('sortBy').value;
+            
+            // Use the new comprehensive filtering and sorting function
+            const nearbyVenues = filterAndSortVenues(venues, userLatitude, userLongitude, maxDistance, venueType, sortBy);
+            
+            statusDiv.className = 'status';
+            let statusText = `Found ${nearbyVenues.length} sample venues within ${maxDistance}km`;
+            if (venueType) {
+                statusText += ` (filtered by: ${venueType})`;
+            }
+            if (sortBy !== 'distance') {
+                statusText += ` (sorted by: ${sortBy})`;
+            }
+            statusDiv.textContent = statusText;
+            
+            locationDiv.className = 'location-info';
+            locationDiv.innerHTML = `
+                <strong>Sample Location (Times Square, NYC):</strong><br>
+                Latitude: ${userLatitude}<br>
+                Longitude: ${userLongitude}
+            `;
+            
+            
+            venueList.innerHTML = nearbyVenues.map((venue, index) => `
+                <div class="venue-item">
+                    <div class="venue-name">${index + 1}. ${venue.name}</div>
+                    <div class="venue-details">📍 <span class="distance">${venue.distance.toFixed(2)} km away</span></div>
+                    ${venue.type ? `<div class="venue-details">🏷️ Type: ${venue.type}</div>` : ''}
+                    <div class="venue-details" style="font-size: 12px; color: #999;">
+                        Coordinates: ${venue.latitude}, ${venue.longitude}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Function to fetch real venues from OpenStreetMap
+        async function fetchRealVenues(latitude, longitude, radius) {
+            const query = `
+                [out:json];
+                (
+                    node["amenity"~"restaurant|cafe|bar|pub|fast_food"](around:${radius},${latitude},${longitude});
+                );
+                out body;
+            `;
+            
+            const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.elements) {
+                    return data.elements.map(place => ({
+                        name: place.tags.name || 'Unnamed venue',
+                        latitude: place.lat,
+                        longitude: place.lon,
+                        type: place.tags.amenity,
+                        cuisine: place.tags.cuisine,
+                        address: place.tags['addr:street']
+                    }));
+                }
+                return [];
+            } catch (error) {
+                console.error('Error fetching venues:', error);
+                return [];
+            }
+        }
+    </script>
+</body>
+</html>
+
